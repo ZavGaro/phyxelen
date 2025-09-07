@@ -21,12 +21,18 @@ enum InteractionType {
 	explode
 }
 
+struct InteractionRule
+{
+	InteractionType type;
+	Material* material;
+}
+
 struct Material {
 	ushort id;
 	MaterialType type;
 	float density;
 	int[] colors;
-	InteractionType[ushort] interactions;
+	InteractionRule[ushort] interactions;
 }
 
 struct Pixel {
@@ -157,14 +163,14 @@ struct Chunk {
 
 				foreach (i, pix; surroundingPxs) {
 					if (pix !is null && pix.material.id in pixel.material.interactions && pix.updateCounter != step) {
-						InteractionType interaction = pixel.material.interactions[pix.material.id];
-						switch (interaction){
+						InteractionRule interaction = pixel.material.interactions[pix.material.id];
+						switch (interaction.type){
 							case InteractionType.burn://burn
 								break;
 							case InteractionType.changeSelf://changeself
 								break;
 							case InteractionType.changeEnother://changeEnother
-								changeMaterial(pix, pixel.material);
+								changeMaterial(pix, interaction.material);
 								break;
 							case InteractionType.changeBoth://changeBoth
 								break;
