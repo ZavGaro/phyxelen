@@ -1,0 +1,10 @@
+{
+	"authors": [
+		"ZavGaro", "Mechanic"
+	],
+	"copyright": "Copyright © 2025, ZavGaro and Mechanic",
+	"description": "Pixel physics engine",
+	"license": "LGPL-3.0-or-later",
+	"name": "phyxelen",
+	"buildOptions": ["debugInfoC"]
+}

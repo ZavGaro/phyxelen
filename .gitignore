@@ -1,0 +1,17 @@
+.dub
+docs.json
+__dummy.html
+docs/
+/phyxelen
+phyxelen.so
+phyxelen.dylib
+phyxelen.dll
+phyxelen.a
+phyxelen.lib
+phyxelen-test-*
+*.exe
+*.pdb
+*.o
+*.obj
+*.lst
+*.a
