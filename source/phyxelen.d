@@ -13,11 +13,20 @@ enum MaterialType {
 	gas
 }
 
+enum InteractionType {
+	burn,
+	changeSelf,
+	changeEnother,
+	changeBoth,
+	explode
+}
+
 struct Material {
 	ushort id;
 	MaterialType type;
 	float density;
 	int[] colors;
+	InteractionType[ushort] interactions;
 }
 
 struct Pixel {
@@ -32,6 +41,10 @@ struct Pixel {
 			return material.colors[color];
 		else
 			return color;
+	}
+
+	void resetColor() {
+		color = uniform(0, material.colors.length);
 	}
 }
 
@@ -324,4 +337,16 @@ struct World {
 	Chunk* getChunk(int xIndex, int yIndex) {
 		return chunks[Vec2i(xIndex, yIndex)];
 	}
+}
+ 
+void changeMaterial(Pixel* pixel, Material* newMaterial){
+	pixel.material = newMaterial;
+	pixel.resetColor();
+}
+
+void changeMaterial(Pixel* pixel1, Pixel* pixel2, Material* newMaterial1, Material* newMaterial2){
+	pixel1.material = newMaterial1;
+	pixel1.resetColor();
+	pixel2.material = newMaterial2;
+	pixel2.resetColor();
 }
