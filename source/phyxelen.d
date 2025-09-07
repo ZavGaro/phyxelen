@@ -48,6 +48,11 @@ struct Pixel {
 	}
 }
 
+struct PixelWithVelocity {
+	Pixel* pixel;
+	float x, y, velX, velY;
+}
+
 void swapPixels(Pixel* p1, Pixel* p2) {
 	Pixel buf = *p1;
 	*p1 = *p2;
@@ -72,6 +77,35 @@ bool tryMovePixel(Pixel* from, Pixel* to, ubyte step) {
 	return false;
 }
 
+bool tryMovePixelRecursive(Chunk* chunk, Pixel* from, int fromX, int fromY, Pixel* to, int toX, int toY, ubyte step) {
+	if (to is null)
+		return false;
+	if (to.material == from.material && to.updateCounter != step) {
+		int beyondX = toX * 2 - fromX;
+		int beyondY = toY * 2 - fromY;
+		Pixel* pixelBeyond = chunk.getPixel(beyondX, beyondY);
+		if (pixelBeyond is null || pixelBeyond.updateCounter == step)
+			return false;
+		if (tryMovePixelRecursive(chunk, to, toX, toY,
+			pixelBeyond, beyondX, beyondY, step))
+		return false;
+	}
+	if (to.material.type == MaterialType.air) {
+		auto air = to.material;
+		*to = *from;
+		*from = Pixel(air, 0, step, false, 0);
+		to.updateCounter = step;
+		return true;
+	}
+	if (to.material.density < from.material.density) {
+		swapPixels(to, from);
+		to.updateCounter = step;
+		return true;
+	}
+	
+	return false;
+}
+
 enum chunkSize = 64;
 enum chunkArea = chunkSize * chunkSize;
 
@@ -80,6 +114,7 @@ struct Chunk {
 	int x, y;
 	Chunk* left, right; /// Nearest chunks on sides. Can be not neighbors
 	Pixel[chunkArea] pixels;
+	PixelWithVelocity[] pixelsWithVelocity;
 
 	void step(ubyte step) {
 		bool reverse = step % 2 == 1;
@@ -240,6 +275,17 @@ struct Chunk {
 					if (tryMovePixel(pixel, leftPx, step))
 						break;
 				}
+				// if (uniform(0, 2) == 0) {
+				// 	if (tryMovePixelRecursive(&this, pixel, px, py, leftPx, px - 1, py, step))
+				// 		break;
+				// 	if (tryMovePixelRecursive(&this, pixel, px, py, rightPx, px + 1, py, step))
+				// 		break;
+				// } else {
+				// 	if (tryMovePixelRecursive(&this, pixel, px, py, rightPx, px + 1, py, step))
+				// 		break;
+				// 	if (tryMovePixelRecursive(&this, pixel, px, py, leftPx, px - 1, py, step))
+				// 		break;
+				// }
 				break;
 			}
 			case MaterialType.gas: {
@@ -323,25 +369,55 @@ struct World {
 	void step(float dt) {
 		phyxelDt += dt;
 		if (phyxelDt >= 1 / targetPhyxelTps) {
-			bool reverse = stepCounter % 8 > 3;
+			bool reverse = stepCounter % 2 == 0;
 			// bool reverse = false;
 			foreach (first; leftChunks) {
+				Chunk*[] line;
 				Chunk* chunk = first;
-				if (reverse) {
-					while (chunk.right !is null)
-						chunk = chunk.right;
-					while (chunk !is null) {
-						// writefln("%s %s", chunk.x, chunk.y);
-						chunk.step(stepCounter);
-						chunk = chunk.left;
-					}
-				} else {
-					while (chunk !is null) {
-						// writefln("%s %s", chunk.x, chunk.y);
-						chunk.step(stepCounter);
-						chunk = chunk.right;
-					}
+				while (chunk !is null) {
+					line ~= chunk;
+					chunk = chunk.right;
 				}
+				ushort y = 0;
+				while (y < chunkSize) {
+					if (reverse) {
+						foreach_reverse (Chunk* lineChunk; line) {
+							int i = (y + 1) * chunkSize - 1;
+							auto c = chunkSize;
+							while (c != 0) {
+								lineChunk.pixelStep(i, stepCounter);
+								i--;
+								c--;
+							}
+						}
+					} else {
+						foreach (Chunk* lineChunk; line) {
+							int i = y * chunkSize;
+							auto c = chunkSize;
+							while (c != 0) {
+								lineChunk.pixelStep(i, stepCounter);
+								i++;
+								c--;
+							}
+						}
+					}
+					y++;
+				}
+				// if (reverse) {
+				// 	while (chunk.right !is null)
+				// 		chunk = chunk.right;
+				// 	while (chunk !is null) {
+				// 		// writefln("%s %s", chunk.x, chunk.y);
+				// 		chunk.step(stepCounter);
+				// 		chunk = chunk.left;
+				// 	}
+				// } else {
+				// 	while (chunk !is null) {
+				// 		// writefln("%s %s", chunk.x, chunk.y);
+				// 		chunk.step(stepCounter);
+				// 		chunk = chunk.right;
+				// 	}
+				// }
 			}
 			stepCounter++;
 			phyxelDt = 0;
@@ -390,7 +466,10 @@ struct World {
 	}
 
 	Chunk* getChunk(int xIndex, int yIndex) {
-		return chunks[Vec2i(xIndex, yIndex)];
+		if (Vec2i(xIndex, yIndex) in chunks)
+			return chunks[Vec2i(xIndex, yIndex)];
+		else
+			return null;
 	}
 }
  
