@@ -44,7 +44,7 @@ struct Pixel {
 	}
 
 	void resetColor() {
-		color = uniform(0, material.colors.length);
+		color = cast(ubyte) uniform(0, material.colors.length);
 	}
 }
 
@@ -105,7 +105,46 @@ struct Chunk {
 
 	void pixelStep(int index, ubyte step) {
 		Pixel* pixel = &pixels[index];
+
+		if (pixel.material.interactions.length){
+				int px = this.x * chunkSize + index % chunkSize;
+				int py = this.y * chunkSize + index / chunkSize;
+				Pixel*[] surroundingPxs = [
+					getPixel(px, py - 1),//under
+					getPixel(px - 1, py - 1),//underLeft
+					getPixel(px + 1, py - 1),//underRightI
+					getPixel(px - 1, py),//leftPx
+					getPixel(px + 1, py),//rightPx
+					getPixel(px, py + 1),//above
+					getPixel(px - 1, py + 1),//aboveLeft
+					getPixel(px + 1, py + 1),//aboveRight
+					];
+
+				foreach (i, pix; surroundingPxs) {
+					if (pix !is null && pix.material.id in pixel.material.interactions && pix.updateCounter != step) {
+						InteractionType interaction = pixel.material.interactions[pix.material.id];
+						switch (interaction){
+							case InteractionType.burn://burn
+								break;
+							case InteractionType.changeSelf://changeself
+								break;
+							case InteractionType.changeEnother://changeEnother
+								changeMaterial(pix, pixel.material);
+								break;
+							case InteractionType.changeBoth://changeBoth
+								break;
+							case InteractionType.explode://explode
+								break;
+							default:
+								break;
+						}
+
+					}
+    			}
+			}
+
 		if (pixel.updateCounter != step) {
+
 		// if (true){//pixels[i].updateCounter != step) {
 			int px = this.x * chunkSize + index % chunkSize;
 			int py = this.y * chunkSize + index / chunkSize;
