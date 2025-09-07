@@ -85,141 +85,9 @@ struct Chunk {
 		bool reverse = step % 2 == 1;
 		// bool reverse = false;
 		auto rand = Random(step + x + y * 3);
-		with (MaterialType) {
 		int i = reverse ? chunkSize - 1 : 0;
 		for (;;) {
-			if (pixels[i].updateCounter != step) {
-			// if (true){//pixels[i].updateCounter != step) {
-				int px = this.x * chunkSize + i % chunkSize;
-				int py = this.y * chunkSize + i / chunkSize;
-				auto thisMat = pixels[i].material;
-				final switch (thisMat.type) {
-				case air, solid: break;
-				case powder: {
-					Pixel* under = getPixel(px, py - 1);
-					if (tryMovePixel(&pixels[i], under, step))
-						break;
-					Pixel* underLeft = getPixel(px - 1, py - 1);
-					Pixel* underRight = getPixel(px + 1, py - 1);
-					if (uniform(0, 2) == 0) {
-						if (tryMovePixel(&pixels[i], underLeft, step))
-							break;
-						if (tryMovePixel(&pixels[i], underRight, step))
-							break;
-					} else {
-						if (tryMovePixel(&pixels[i], underRight, step))
-							break;
-						if (tryMovePixel(&pixels[i], underLeft, step))
-							break;
-					}
-					break;
-				}
-				case liquid: {
-					Pixel* under = getPixel(px, py - 1);
-					if (/*uniform(0, 100) != 0 && */tryMovePixel(&pixels[i], under, step))
-						break;
-					Pixel* underLeft = getPixel(px - 1, py - 1);
-					Pixel* underRight = getPixel(px + 1, py - 1);
-					version (noSplat) {
-						if (uniform(0, 2) == 0) {
-							if (tryMovePixel(&pixels[i], underLeft, step))
-								break;
-							if (tryMovePixel(&pixels[i], underRight, step))
-								break;
-						} else {
-							if (tryMovePixel(&pixels[i], underRight, step))
-								break;
-							if (tryMovePixel(&pixels[i], underLeft, step))
-								break;
-						}
-					} else {
-						enum maxOffset = 3;
-						if (uniform(0, 2) == 0) {
-							if (tryMovePixel(&pixels[i], underLeft, step)) {
-								Pixel* lowerLeft = getPixel(px - 1, py - 2);
-								if (lowerLeft !is null) {
-									int offset = uniform(1, maxOffset);
-									tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
-								}
-								break;
-							}
-							if (tryMovePixel(&pixels[i], underRight, step)) {
-								Pixel* lowerRight = getPixel(px + 1, py - 2);
-								if (lowerRight !is null) {
-									int offset = uniform(1, maxOffset);
-									tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
-								}
-								break;
-							}
-						} else {
-							if (tryMovePixel(&pixels[i], underRight, step)) {
-								Pixel* lowerRight = getPixel(px + 1, py - 2);
-								if (lowerRight !is null) {
-									int offset = uniform(1, maxOffset);
-									tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
-								}
-								break;
-							}
-							if (tryMovePixel(&pixels[i], underLeft, step)) {
-								Pixel* lowerLeft = getPixel(px - 1, py - 2);
-								if (lowerLeft !is null) {
-									int offset = uniform(1, maxOffset);
-									tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
-								}
-								break;
-							}
-						}
-						
-					}
-					Pixel* leftPx = getPixel(px - 1, py);
-					Pixel* rightPx = getPixel(px + 1, py);
-					if (uniform(0, 2) == 0) {
-						if (tryMovePixel(&pixels[i], leftPx, step))
-							break;
-						if (tryMovePixel(&pixels[i], rightPx, step))
-							break;
-					} else {
-						if (tryMovePixel(&pixels[i], rightPx, step))
-							break;
-						if (tryMovePixel(&pixels[i], leftPx, step))
-							break;
-					}
-					break;
-				}
-				case gas: {
-					Pixel* above = getPixel(px, py + 1);
-					if (tryMovePixel(&pixels[i], above, step))
-						break;
-					Pixel* aboveLeft = getPixel(px - 1, py + 1);
-					Pixel* aboveRight = getPixel(px + 1, py + 1);
-					if (uniform(0, 2) == 0) {
-						if (tryMovePixel(&pixels[i], aboveLeft, step))
-							break;
-						if (tryMovePixel(&pixels[i], aboveRight, step))
-							break;
-					} else {
-						if (tryMovePixel(&pixels[i], aboveRight, step))
-							break;
-						if (tryMovePixel(&pixels[i], aboveLeft, step))
-							break;
-					}
-					Pixel* leftPx = getPixel(px - 1, py);
-					Pixel* rightPx = getPixel(px + 1, py);
-					if (uniform(0, 2) == 0) {
-						if (tryMovePixel(&pixels[i], leftPx, step))
-							break;
-						if (tryMovePixel(&pixels[i], rightPx, step))
-							break;
-					} else {
-						if (tryMovePixel(&pixels[i], rightPx, step))
-							break;
-						if (tryMovePixel(&pixels[i], leftPx, step))
-							break;
-					}
-					break;
-				}
-				} 
-			}
+			pixelStep(i, step);
 			if (reverse) {
 				if (i == chunkArea - chunkSize)
 					break;
@@ -231,8 +99,143 @@ struct Chunk {
 				i++;
 				if (i == chunkArea)
 					break;
-			}
+			}	
 		}
+	}
+
+	void pixelStep(int index, ubyte step) {
+		Pixel* pixel = &pixels[index];
+		if (pixel.updateCounter != step) {
+		// if (true){//pixels[i].updateCounter != step) {
+			int px = this.x * chunkSize + index % chunkSize;
+			int py = this.y * chunkSize + index / chunkSize;
+			auto thisMat = pixel.material;
+			final switch (thisMat.type) {
+			case MaterialType.air, MaterialType.solid: break;
+			case MaterialType.powder: {
+				Pixel* under = getPixel(px, py - 1);
+				if (tryMovePixel(pixel, under, step))
+					break;
+				Pixel* underLeft = getPixel(px - 1, py - 1);
+				Pixel* underRight = getPixel(px + 1, py - 1);
+				if (uniform(0, 2) == 0) {
+					if (tryMovePixel(pixel, underLeft, step))
+						break;
+					if (tryMovePixel(pixel, underRight, step))
+						break;
+				} else {
+					if (tryMovePixel(pixel, underRight, step))
+						break;
+					if (tryMovePixel(pixel, underLeft, step))
+						break;
+				}
+				break;
+			}
+			case MaterialType.liquid: {
+				Pixel* under = getPixel(px, py - 1);
+				if (/*uniform(0, 100) != 0 && */tryMovePixel(pixel, under, step))
+					break;
+				Pixel* underLeft = getPixel(px - 1, py - 1);
+				Pixel* underRight = getPixel(px + 1, py - 1);
+				version (noSplat) {
+					if (uniform(0, 2) == 0) {
+						if (tryMovePixel(pixel, underLeft, step))
+							break;
+						if (tryMovePixel(pixel, underRight, step))
+							break;
+					} else {
+						if (tryMovePixel(pixel, underRight, step))
+							break;
+						if (tryMovePixel(pixel, underLeft, step))
+							break;
+					}
+				} else {
+					enum maxOffset = 3;
+					if (uniform(0, 2) == 0) {
+						if (tryMovePixel(pixel, underLeft, step)) {
+							Pixel* lowerLeft = getPixel(px - 1, py - 2);
+							if (lowerLeft !is null) {
+								int offset = uniform(1, maxOffset);
+								tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
+							}
+							break;
+						}
+						if (tryMovePixel(pixel, underRight, step)) {
+							Pixel* lowerRight = getPixel(px + 1, py - 2);
+							if (lowerRight !is null) {
+								int offset = uniform(1, maxOffset);
+								tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
+							}
+							break;
+						}
+					} else {
+						if (tryMovePixel(pixel, underRight, step)) {
+							Pixel* lowerRight = getPixel(px + 1, py - 2);
+							if (lowerRight !is null) {
+								int offset = uniform(1, maxOffset);
+								tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
+							}
+							break;
+						}
+						if (tryMovePixel(pixel, underLeft, step)) {
+							Pixel* lowerLeft = getPixel(px - 1, py - 2);
+							if (lowerLeft !is null) {
+								int offset = uniform(1, maxOffset);
+								tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
+							}
+							break;
+						}
+					}
+					
+				}
+				Pixel* leftPx = getPixel(px - 1, py);
+				Pixel* rightPx = getPixel(px + 1, py);
+				if (uniform(0, 2) == 0) {
+					if (tryMovePixel(pixel, leftPx, step))
+						break;
+					if (tryMovePixel(pixel, rightPx, step))
+						break;
+				} else {
+					if (tryMovePixel(pixel, rightPx, step))
+						break;
+					if (tryMovePixel(pixel, leftPx, step))
+						break;
+				}
+				break;
+			}
+			case MaterialType.gas: {
+				Pixel* above = getPixel(px, py + 1);
+				if (tryMovePixel(pixel, above, step))
+					break;
+				Pixel* aboveLeft = getPixel(px - 1, py + 1);
+				Pixel* aboveRight = getPixel(px + 1, py + 1);
+				if (uniform(0, 2) == 0) {
+					if (tryMovePixel(pixel, aboveLeft, step))
+						break;
+					if (tryMovePixel(pixel, aboveRight, step))
+						break;
+				} else {
+					if (tryMovePixel(pixel, aboveRight, step))
+						break;
+					if (tryMovePixel(pixel, aboveLeft, step))
+						break;
+				}
+				Pixel* leftPx = getPixel(px - 1, py);
+				Pixel* rightPx = getPixel(px + 1, py);
+				if (uniform(0, 2) == 0) {
+					if (tryMovePixel(pixel, leftPx, step))
+						break;
+					if (tryMovePixel(pixel, rightPx, step))
+						break;
+				} else {
+					if (tryMovePixel(pixel, rightPx, step))
+						break;
+					if (tryMovePixel(pixel, leftPx, step))
+						break;
+				}
+				break;
+			}
+			} 
 		}
 	}
 
@@ -281,12 +284,24 @@ struct World {
 	void step(float dt) {
 		phyxelDt += dt;
 		if (phyxelDt >= 1 / targetPhyxelTps) {
+			bool reverse = stepCounter % 8 > 3;
+			// bool reverse = false;
 			foreach (first; leftChunks) {
-				auto chunk = first;
-				while (chunk !is null) {
-					// writefln("%s %s", chunk.x, chunk.y);
-					chunk.step(stepCounter);
-					chunk = chunk.right;
+				Chunk* chunk = first;
+				if (reverse) {
+					while (chunk.right !is null)
+						chunk = chunk.right;
+					while (chunk !is null) {
+						// writefln("%s %s", chunk.x, chunk.y);
+						chunk.step(stepCounter);
+						chunk = chunk.left;
+					}
+				} else {
+					while (chunk !is null) {
+						// writefln("%s %s", chunk.x, chunk.y);
+						chunk.step(stepCounter);
+						chunk = chunk.right;
+					}
 				}
 			}
 			stepCounter++;
@@ -318,6 +333,7 @@ struct World {
 					if (ch.right !is null)
 						ch.right.left = newChunk;
 					ch.right = newChunk;
+					newChunk.left = ch;
 					return;
 				}
 
