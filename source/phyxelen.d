@@ -20,18 +20,8 @@ struct Material {
 	int[] colors;
 }
 
-// struct Pixel {
-// 	Chunk* chunk;
-// 	ushort i;
-
-// 	ushort materialIndex() { return chunk.materials[i]; }
-// 	Material* material() { return &chunk.world.materials[chunk.materials[i]]; }
-// }
-
 struct Pixel {
-	// Chunk* chunk;
 	Material* material;
-	// ushort material;
 	ubyte color;
 	ubyte updateCounter;
 	bool colorOverriden;
@@ -76,9 +66,6 @@ struct Chunk {
 	World* world;
 	int x, y;
 	Chunk* left, right; /// Nearest chunks on sides. Can be not neighbors
-	// ushort[chunkArea] materials;
-	// ubyte[chunkArea] colors;
-	// int[] colorOverrides;
 	Pixel[chunkArea] pixels;
 
 	void step(ubyte step) {
@@ -87,14 +74,11 @@ struct Chunk {
 		auto rand = Random(step + x + y * 3);
 		with (MaterialType) {
 		int i = reverse ? chunkSize - 1 : 0;
-		// writeln();
 		for (;;) {
 			if (pixels[i].updateCounter != step) {
-				// write(' ', i);
 			// if (true){//pixels[i].updateCounter != step) {
 				int px = this.x * chunkSize + i % chunkSize;
 				int py = this.y * chunkSize + i / chunkSize;
-				// final switch (world.materials[pixels[i].material].type) {
 				auto thisMat = pixels[i].material;
 				final switch (thisMat.type) {
 				case air, solid: break;
@@ -102,19 +86,6 @@ struct Chunk {
 					Pixel* under = getPixel(px, py - 1);
 					if (tryMovePixel(&pixels[i], under, step))
 						break;
-					// if (under !is null && under.updateCounter != step) {
-					// 	if (under.material.type == MaterialType.air) {
-					// 		pixels[i].updateCounter = step;
-					// 		*under = pixels[i];
-					// 		// pixels[i] = Pixel(&world.materials[0], 0, false, 0);
-					// 		pixels[i].material = &world.materials[0];
-					// 		break;
-					// 	} else if (under.material.density < thisMat.density) {
-					// 		pixels[i].updateCounter = step;
-					// 		swapPixels(under, &pixels[i]);
-					// 		break;
-					// 	}
-					// }
 					Pixel* underLeft = getPixel(px - 1, py - 1);
 					Pixel* underRight = getPixel(px + 1, py - 1);
 					if (uniform(0, 2) == 0) {
@@ -128,26 +99,6 @@ struct Chunk {
 						if (tryMovePixel(&pixels[i], underLeft, step))
 							break;
 					}
-					// bool canGoUnderLeft = underLeft !is null && underLeft.updateCounter != step
-					// 	&& (underLeft.material.type == MaterialType.air
-					// 		|| underLeft.material.density < thisMat.density);
-					// bool canGoUnderRight = underRight !is null && underRight.updateCounter != step
-					// 	&& (underRight.material.type == MaterialType.air
-					// 		|| underRight.material.density < thisMat.density);
-					// if (canGoUnderLeft) {
-					// 	if (canGoUnderRight && uniform(0, 2) == 0) {
-					// 		pixels[i].updateCounter = step;
-					// 		swapPixels(underRight, &pixels[i]);
-					// 		break;
-					// 	}
-					// 	pixels[i].updateCounter = step;
-					// 	swapPixels(underLeft, &pixels[i]);
-					// 	break;
-					// }
-					// if (canGoUnderRight) {
-					// 	pixels[i].updateCounter = step;
-					// 	swapPixels(underRight, &pixels[i]);
-					// }
 					break;
 				}
 				case liquid: {
@@ -173,7 +124,7 @@ struct Chunk {
 						if (uniform(0, 2) == 0) {
 							if (tryMovePixel(&pixels[i], underLeft, step)) {
 								Pixel* lowerLeft = getPixel(px - 1, py - 2);
-								if (lowerLeft !is null) {// && lowerLeft.material.type == MaterialType.air) {
+								if (lowerLeft !is null) {
 									int offset = uniform(1, maxOffset);
 									tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
 								}
@@ -181,7 +132,7 @@ struct Chunk {
 							}
 							if (tryMovePixel(&pixels[i], underRight, step)) {
 								Pixel* lowerRight = getPixel(px + 1, py - 2);
-								if (lowerRight !is null) {// && lowerRight.material.type == MaterialType.air) {
+								if (lowerRight !is null) {
 									int offset = uniform(1, maxOffset);
 									tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
 								}
@@ -190,7 +141,7 @@ struct Chunk {
 						} else {
 							if (tryMovePixel(&pixels[i], underRight, step)) {
 								Pixel* lowerRight = getPixel(px + 1, py - 2);
-								if (lowerRight !is null) {// && lowerRight.material.type == MaterialType.air) {
+								if (lowerRight !is null) {
 									int offset = uniform(1, maxOffset);
 									tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
 								}
@@ -198,7 +149,7 @@ struct Chunk {
 							}
 							if (tryMovePixel(&pixels[i], underLeft, step)) {
 								Pixel* lowerLeft = getPixel(px - 1, py - 2);
-								if (lowerLeft !is null) {// && lowerLeft.material.type == MaterialType.air) {
+								if (lowerLeft !is null) {
 									int offset = uniform(1, maxOffset);
 									tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
 								}
@@ -209,29 +160,6 @@ struct Chunk {
 					}
 					Pixel* leftPx = getPixel(px - 1, py);
 					Pixel* rightPx = getPixel(px + 1, py);
-					// if (uniform(0, 2) == 0) {
-					// 	if (tryMovePixel(&pixels[i], leftPx, step)) {
-					// 		if (underLeft !is null && underLeft.material.type == MaterialType.air)
-					// 			tryMovePixel(&pixels[i], getPixel(px - uniform(1, 4), py), step);
-					// 		break;
-					// 	}
-					// 	if (tryMovePixel(&pixels[i], rightPx, step)) {
-					// 		if (underRight !is null && underRight.material.type == MaterialType.air)
-					// 			tryMovePixel(&pixels[i], getPixel(px + uniform(1, 4), py), step);
-					// 		break;
-					// 	}
-					// } else {
-					// 	if (tryMovePixel(&pixels[i], rightPx, step)) {
-					// 		if (underRight !is null && underRight.material.type == MaterialType.air)
-					// 			tryMovePixel(&pixels[i], getPixel(px + uniform(1, 4), py), step);
-					// 		break;
-					// 	}
-					// 	if (tryMovePixel(&pixels[i], leftPx, step)) {
-					// 		if (underLeft !is null && underLeft.material.type == MaterialType.air)
-					// 			tryMovePixel(&pixels[i], getPixel(px - uniform(1, 4), py), step);
-					// 		break;
-					// 	}
-					// }
 					if (uniform(0, 2) == 0) {
 						if (tryMovePixel(&pixels[i], leftPx, step))
 							break;
@@ -243,89 +171,6 @@ struct Chunk {
 						if (tryMovePixel(&pixels[i], leftPx, step))
 							break;
 					}
-
-					// Pixel* under = getPixel(px, py - 1);
-					// if (under !is null && under.updateCounter != step) {
-					// 	if (under.material.type == MaterialType.air) {
-					// 		pixels[i].updateCounter = step;
-					// 		*under = pixels[i];
-					// 		pixels[i].material = &world.materials[0];
-					// 		break;
-					// 	} else if (under.material.density < thisMat.density) {
-					// 		pixels[i].updateCounter = step;
-					// 		swapPixels(under, &pixels[i]);
-					// 		break;
-					// 	}
-					// }
-					// Pixel* underLeft = getPixel(px - 1, py - 1);
-					// Pixel* underRight = getPixel(px + 1, py - 1);
-					// bool canGoUnderLeft = underLeft !is null && underLeft.updateCounter != step
-					// 	&& (underLeft.material.type == MaterialType.air
-					// 		|| underLeft.material.density < thisMat.density);
-					// bool canGoUnderRight = underRight !is null && underRight.updateCounter != step
-					// 	&& (underRight.material.type == MaterialType.air
-					// 		|| underRight.material.density < thisMat.density);
-					// if (canGoUnderLeft) {
-					// 	if (canGoUnderRight && uniform(0, 2) == 0) {
-					// 		pixels[i].updateCounter = step;
-					// 		swapPixels(underRight, &pixels[i]);
-					// 		break;
-					// 	}
-					// 	pixels[i].updateCounter = step;
-					// 	swapPixels(underLeft, &pixels[i]);
-					// 	break;
-					// }
-					// if (canGoUnderRight) {
-					// 	pixels[i].updateCounter = step;
-					// 	swapPixels(underRight, &pixels[i]);
-					// 	break;
-					// }
-					// Pixel* leftPx = getPixel(px - 1, py);
-					// Pixel* rightPx = getPixel(px + 1, py);
-					// if (leftPx !is null && leftPx.updateCounter != step) {
-					// 	if (leftPx.material.type == MaterialType.air) {
-					// 		if (rightPx !is null && rightPx.updateCounter != step) {
-					// 			if (rightPx.material.type == MaterialType.air) {
-					// 				pixels[i].updateCounter = step;
-					// 				*rightPx = pixels[i];
-					// 				pixels[i].material = &world.materials[0];
-					// 				break;
-					// 			} else if (rightPx.material.density < thisMat.density) {
-					// 				pixels[i].updateCounter = step;
-					// 				swapPixels(rightPx, &pixels[i]);
-					// 				break;
-					// 			}
-					// 		}
-					// 		*leftPx = pixels[i];
-					// 		pixels[i].material = &world.materials[0];
-					// 		break;
-					// 	} else if (leftPx.material.density < thisMat.density) {
-					// 		if (rightPx !is null && rightPx.updateCounter != step) {
-					// 			if (rightPx.material.type == MaterialType.air) {
-					// 				pixels[i].updateCounter = step;
-					// 				*rightPx = pixels[i];
-					// 				pixels[i].material = &world.materials[0];
-					// 				break;
-					// 			} else if (rightPx.material.density < thisMat.density) {
-					// 				pixels[i].updateCounter = step;
-					// 				swapPixels(rightPx, &pixels[i]);
-					// 				break;
-					// 			}
-					// 		}
-					// 		swapPixels(leftPx, &pixels[i]);
-					// 		break;
-					// 	}
-					// }
-					// if (rightPx !is null && rightPx.updateCounter != step) {
-					// 	if (rightPx.material.type == MaterialType.air) {
-					// 		*rightPx = pixels[i];
-					// 		pixels[i].material = &world.materials[0];
-					// 		break;
-					// 	} else if (rightPx.material.density < thisMat.density) {
-					// 		swapPixels(rightPx, &pixels[i]);
-					// 		break;
-					// 	}
-					// }
 					break;
 				}
 				case gas: {
@@ -381,7 +226,6 @@ struct Chunk {
 	Pixel* getPixel(int x, int y) {
 		int cx = this.x * chunkSize;
 		int cy = this.y * chunkSize;
-		// writeln(Vec2i(cx, cy));
 		if (x < cx) {
 			auto other = Vec2i(this.x - 1, this.y) in world.chunks;
 			if (other !is null)
@@ -396,7 +240,6 @@ struct Chunk {
 				return null;
 		} else if (y < cy) {
 			auto other = Vec2i(this.x, this.y - 1) in world.chunks;
-			// writeln(Vec2i(cx, cy));
 			if (other !is null)
 				return (*other).getPixel(x, y);
 			else
@@ -408,25 +251,13 @@ struct Chunk {
 			else
 				return null;
 		} else {
-			// return Pixel(&this, cast(ushort) (x - cx + (y - cy) * chunkSize));
 			return &pixels[x - cx + (y - cy) * chunkSize];
 		}
 	}
 }
 
-// struct BiLinkedListNode(T) {
-// 	T* content;
-// 	BiLinkedListNode!T* next;
-// 	BiLinkedListNode!T* prev;
-// }
-// struct BiLinkedList(T) {
-// 	BiLinkedListNode!T* node;
-// 	BiLinkedListNode!T* head;
-// 	BiLinkedListNode!T* end;
-// }
 
 struct World {
-	// BiLinkedList!(BiLinkedList!Chunk) chunks;
 	Material[] materials;
 	Chunk*[Vec2i] chunks;
 	Chunk*[] leftChunks;
@@ -445,9 +276,6 @@ struct World {
 					chunk = chunk.right;
 				}
 			}
-			// foreach (chunk; chunks) {
-			// 	chunk.step(stepCounter);
-			// }
 			stepCounter++;
 			phyxelDt = 0;
 		}
@@ -494,22 +322,6 @@ struct World {
 	}
 
 	Chunk* getChunk(int xIndex, int yIndex) {
-		// foreach (chunk; leftChunks) {
-		// 	if (yIndex == chunk.y) {
-		// 		Chunk* ch = chunk;
-		// 		while (ch !is null) {
-		// 			if (xIndex == ch.x)
-		// 				return ch;
-		// 			else if (xIndex > ch.x)
-		// 				return null;
-		// 		}
-		// 		return null;
-		// 	} else if (yIndex > chunk.y)
-		// 		return null;
-		// }
-		// return null;
 		return chunks[Vec2i(xIndex, yIndex)];
 	}
 }
-
-// 
