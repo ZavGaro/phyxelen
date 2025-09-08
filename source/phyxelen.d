@@ -65,7 +65,7 @@ void swapPixels(Pixel* p1, Pixel* p2) {
 	*p2 = buf;
 }
 
-bool tryMovePixel(Pixel* from, Pixel* to, ubyte step) {
+bool tryMovePixel(Pixel* from, Pixel* to, ubyte step, bool diffuse = false) {
 	if (to is null)
 		return false;
 	if (to.material.type == MaterialType.air) {
@@ -75,7 +75,7 @@ bool tryMovePixel(Pixel* from, Pixel* to, ubyte step) {
 		to.updateCounter = step;
 		return true;
 	}
-	if (to.material.density < from.material.density) {
+	if (to.material.density < from.material.density || (diffuse && to.material.density == from.material.density)) {
 		swapPixels(to, from);
 		to.updateCounter = step;
 		return true;
@@ -83,7 +83,12 @@ bool tryMovePixel(Pixel* from, Pixel* to, ubyte step) {
 	return false;
 }
 
-bool tryMovePixelRecursive(Chunk* chunk, Pixel* from, int fromX, int fromY, Pixel* to, int toX, int toY, ubyte step) {
+bool tryMovePixelRecursive(
+	Chunk* chunk,
+	Pixel* from, int fromX, int fromY,
+	Pixel* to, int toX, int toY,
+	ubyte step, bool diffuse = false
+) {
 	if (to is null)
 		return false;
 	if (to.material == from.material && to.updateCounter != step) {
@@ -92,7 +97,8 @@ bool tryMovePixelRecursive(Chunk* chunk, Pixel* from, int fromX, int fromY, Pixe
 		Pixel* pixelBeyond = chunk.getPixel(beyondX, beyondY);
 		if (pixelBeyond is null || pixelBeyond.updateCounter == step)
 			return false;
-		if (tryMovePixelRecursive(chunk, to, toX, toY,
+		// writefln("%s moves %s", fromX, toX);
+		if (!tryMovePixelRecursive(chunk, to, toX, toY,
 			pixelBeyond, beyondX, beyondY, step))
 		return false;
 	}
@@ -103,7 +109,7 @@ bool tryMovePixelRecursive(Chunk* chunk, Pixel* from, int fromX, int fromY, Pixe
 		to.updateCounter = step;
 		return true;
 	}
-	if (to.material.density < from.material.density) {
+	if (to.material.density < from.material.density || (diffuse && to.material.density == from.material.density)) {
 		swapPixels(to, from);
 		to.updateCounter = step;
 		return true;
@@ -270,16 +276,21 @@ struct Chunk {
 				}
 				Pixel* leftPx = getPixel(px - 1, py);
 				Pixel* rightPx = getPixel(px + 1, py);
+				// if (uniform(0, 2) == 0) {
+				// 	if (tryMovePixel(pixel, leftPx, step))
+				// 		break;
+				// 	if (tryMovePixel(pixel, rightPx, step))
+				// 		break;
+				// } else {
+				// 	if (tryMovePixel(pixel, rightPx, step))
+				// 		break;
+				// 	if (tryMovePixel(pixel, leftPx, step))
+				// 		break;
+				// }
 				if (uniform(0, 2) == 0) {
-					if (tryMovePixel(pixel, leftPx, step))
-						break;
-					if (tryMovePixel(pixel, rightPx, step))
-						break;
+					tryMovePixelRecursive(&this, pixel, px, py, leftPx, px - 1, py, step, true);
 				} else {
-					if (tryMovePixel(pixel, rightPx, step))
-						break;
-					if (tryMovePixel(pixel, leftPx, step))
-						break;
+					tryMovePixelRecursive(&this, pixel, px, py, rightPx, px + 1, py, step, true);
 				}
 				// if (uniform(0, 2) == 0) {
 				// 	if (tryMovePixelRecursive(&this, pixel, px, py, leftPx, px - 1, py, step))
