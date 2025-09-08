@@ -1,5 +1,6 @@
 import std.random;
-debug {import std.stdio;}
+debug {import std.stdio;
+import std.math.rounding;}
 
 struct Vec2i {
 	int x, y;
@@ -55,7 +56,7 @@ struct Pixel {
 }
 
 struct PixelWithVelocity {
-	Pixel* pixel;
+	Pixel pixel;
 	float x, y, velX, velY;
 }
 
@@ -116,6 +117,11 @@ bool tryMovePixelRecursive(
 	}
 	
 	return false;
+}
+
+void throwPixel(Chunk* chunk, Pixel* pixel, float x, float y, float velX, float velY) {
+	chunk.pixelsWithVelocity ~= PixelWithVelocity(*pixel, x, y, velX, velY);
+	*pixel = Pixel(&chunk.world.materials[0], 0, 0, false, 0);
 }
 
 enum chunkSize = 64;
@@ -236,21 +242,25 @@ struct Chunk {
 							break;
 					}
 				} else {
-					enum maxOffset = 3;
+					enum maxOffset = 20;
 					if (uniform(0, 2) == 0) {
 						if (tryMovePixel(pixel, underLeft, step)) {
 							Pixel* lowerLeft = getPixel(px - 1, py - 2);
 							if (lowerLeft !is null) {
-								int offset = uniform(1, maxOffset);
-								tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
+								// int offset = uniform(1, maxOffset);
+								float offset = uniform01() * world.targetPhyxelTps;
+								throwPixel(&this, underLeft, px - 1, py, -offset, -world.targetPhyxelTps);
+								// tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
 							}
 							break;
 						}
 						if (tryMovePixel(pixel, underRight, step)) {
 							Pixel* lowerRight = getPixel(px + 1, py - 2);
 							if (lowerRight !is null) {
-								int offset = uniform(1, maxOffset);
-								tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
+								// int offset = uniform(1, maxOffset);
+								float offset = uniform01() * world.targetPhyxelTps;
+								throwPixel(&this, underRight, px + 1, py, offset, -world.targetPhyxelTps);
+								// tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
 							}
 							break;
 						}
@@ -258,16 +268,20 @@ struct Chunk {
 						if (tryMovePixel(pixel, underRight, step)) {
 							Pixel* lowerRight = getPixel(px + 1, py - 2);
 							if (lowerRight !is null) {
-								int offset = uniform(1, maxOffset);
-								tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
+								// int offset = uniform(1, maxOffset);
+								float offset = uniform01() * world.targetPhyxelTps;
+								throwPixel(&this, underRight, px + 1, py, offset, -world.targetPhyxelTps);
+								// tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
 							}
 							break;
 						}
 						if (tryMovePixel(pixel, underLeft, step)) {
 							Pixel* lowerLeft = getPixel(px - 1, py - 2);
 							if (lowerLeft !is null) {
-								int offset = uniform(1, maxOffset);
-								tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
+								// int offset = uniform(1, maxOffset);
+								float offset = uniform01() * world.targetPhyxelTps;
+								throwPixel(&this, underLeft, px - 1, py, -offset, -world.targetPhyxelTps);
+								// tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
 							}
 							break;
 						}
@@ -383,6 +397,8 @@ struct World {
 	float targetPhyxelTps = 20;
     float phyxelDt = 0;
 
+	float gravity = 2;
+
 	void step(float dt) {
 		phyxelDt += dt;
 		if (phyxelDt >= 1 / targetPhyxelTps) {
@@ -419,6 +435,24 @@ struct World {
 						}
 					}
 					y++;
+				}
+				foreach (Chunk* lineChunk; line) {
+					foreach (i, ref pixel; lineChunk.pixelsWithVelocity) {
+						pixel.velY -= gravity;
+						float newX = pixel.x + pixel.velX * dt;
+						float newY = pixel.y + pixel.velY * dt;
+						auto targetPx = lineChunk.getPixel(cast(int) round(newX), cast(int) round(newY));
+						if (targetPx is null || targetPx.material.type != MaterialType.air) {
+							targetPx = lineChunk.getPixel(cast(int) round(pixel.x), cast(int) round(pixel.y));
+							*targetPx = pixel.pixel;
+							if (i + 1 < lineChunk.pixelsWithVelocity.length)
+								lineChunk.pixelsWithVelocity[i] = lineChunk.pixelsWithVelocity[$ - 1];
+							lineChunk.pixelsWithVelocity.length -= 1;
+						} else {
+							pixel.x = newX;
+							pixel.y = newY;
+						}
+					}
 				}
 				// if (reverse) {
 				// 	while (chunk.right !is null)
