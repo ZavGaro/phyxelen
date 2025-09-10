@@ -26,6 +26,16 @@ struct InteractionRule
 {
 	InteractionType type;
 	Material* material;
+	float spreadFactor = 0.5f;
+
+}
+
+struct FlammabilityRule
+{
+	float flammability = 0.0f;
+	float fireRate = 0.3f;
+	Material* burningMaterial;
+	bool isBurning = false;
 }
 
 struct Material {
@@ -34,6 +44,7 @@ struct Material {
 	float density;
 	int[] colors;
 	InteractionRule[ushort] interactions;
+	FlammabilityRule flammabilityRule;
 }
 
 struct Pixel {
@@ -164,27 +175,36 @@ struct Chunk {
 				int py = this.y * chunkSize + index / chunkSize;
 				Pixel*[] surroundingPxs = [
 					getPixel(px, py - 1),//under
-					getPixel(px - 1, py - 1),//underLeft
-					getPixel(px + 1, py - 1),//underRightI
+					// getPixel(px - 1, py - 1),//underLeft
+					// getPixel(px + 1, py - 1),//underRightI
 					getPixel(px - 1, py),//leftPx
 					getPixel(px + 1, py),//rightPx
 					getPixel(px, py + 1),//above
-					getPixel(px - 1, py + 1),//aboveLeft
-					getPixel(px + 1, py + 1),//aboveRight
+					// getPixel(px - 1, py + 1),//aboveLeft
+					// getPixel(px + 1, py + 1),//aboveRight
 					];
 
 				foreach (i, pix; surroundingPxs) {
 					if (pix !is null && pix.material.id in pixel.material.interactions && pix.updateCounter != step) {
 						InteractionRule interaction = pixel.material.interactions[pix.material.id];
+						
 						switch (interaction.type){
 							case InteractionType.burn://burn
+								// if (uniform(0.0f, 1.0f) < pix.material.flammabilityRule.flammability)
+								// 	changeMaterial(pix, pix.material.flammabilityRule.burningMaterial);
+								// if(uniform(0.0f, 1.0f) < ) Пока не работает...я устав
+
 								break;
 							case InteractionType.changeSelf://changeself
+								changeMaterial(pixel, interaction.material);
 								break;
 							case InteractionType.changeEnother://changeEnother
-								changeMaterial(pix, interaction.material);
+								if (uniform(0.0f, 1.0f) < interaction.spreadFactor)
+									changeMaterial(pix, interaction.material);
 								break;
 							case InteractionType.changeBoth://changeBoth
+								changeMaterial(pix, interaction.material);
+								changeMaterial(pixel, interaction.material);
 								break;
 							case InteractionType.explode://explode
 								break;
