@@ -130,9 +130,9 @@ bool tryMovePixelRecursive(
 	return false;
 }
 
-void throwPixel(Chunk* chunk, Pixel* pixel, float x, float y, float velX, float velY) {
-	chunk.pixelsWithVelocity ~= PixelWithVelocity(*pixel, x, y, velX, velY);
-	*pixel = Pixel(&chunk.world.materials[0], 0, 0, false, 0);
+void throwPixel(World* world, Pixel* pixel, float x, float y, float velX, float velY) {
+	world.pixelsWithVelocity ~= PixelWithVelocity(*pixel, x, y, velX, velY);
+	*pixel = Pixel(&world.materials[0], 0, 0, false, 0);
 }
 
 enum chunkSize = 64;
@@ -143,7 +143,6 @@ struct Chunk {
 	int x, y;
 	Chunk* left, right; /// Nearest chunks on sides. Can be not neighbors
 	Pixel[chunkArea] pixels;
-	PixelWithVelocity[] pixelsWithVelocity;
 
 	void step(ubyte step) {
 		bool reverse = step % 2 == 1;
@@ -263,13 +262,14 @@ struct Chunk {
 					}
 				} else {
 					enum maxOffset = 20;
+					enum fallBoostMultiplier = 1.5;
 					if (uniform(0, 2) == 0) {
 						if (tryMovePixel(pixel, underLeft, step)) {
 							Pixel* lowerLeft = getPixel(px - 1, py - 2);
 							if (lowerLeft !is null) {
 								// int offset = uniform(1, maxOffset);
 								float offset = uniform01() * world.targetPhyxelTps;
-								throwPixel(&this, underLeft, px - 1, py, -offset, -world.targetPhyxelTps);
+								throwPixel(world, underLeft, px - 1, py, -offset, -world.targetPhyxelTps * fallBoostMultiplier);
 								// tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
 							}
 							break;
@@ -279,7 +279,7 @@ struct Chunk {
 							if (lowerRight !is null) {
 								// int offset = uniform(1, maxOffset);
 								float offset = uniform01() * world.targetPhyxelTps;
-								throwPixel(&this, underRight, px + 1, py, offset, -world.targetPhyxelTps);
+								throwPixel(world, underRight, px + 1, py, offset, -world.targetPhyxelTps * fallBoostMultiplier);
 								// tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
 							}
 							break;
@@ -290,7 +290,7 @@ struct Chunk {
 							if (lowerRight !is null) {
 								// int offset = uniform(1, maxOffset);
 								float offset = uniform01() * world.targetPhyxelTps;
-								throwPixel(&this, underRight, px + 1, py, offset, -world.targetPhyxelTps);
+								throwPixel(world, underRight, px + 1, py, offset, -world.targetPhyxelTps * fallBoostMultiplier);
 								// tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
 							}
 							break;
@@ -300,7 +300,7 @@ struct Chunk {
 							if (lowerLeft !is null) {
 								// int offset = uniform(1, maxOffset);
 								float offset = uniform01() * world.targetPhyxelTps;
-								throwPixel(&this, underLeft, px - 1, py, -offset, -world.targetPhyxelTps);
+								throwPixel(world, underLeft, px - 1, py, -offset, -world.targetPhyxelTps * fallBoostMultiplier);
 								// tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
 							}
 							break;
@@ -418,6 +418,7 @@ struct World {
     float phyxelDt = 0;
 
 	float gravity = 2;
+	PixelWithVelocity[] pixelsWithVelocity;
 
 	void step(float dt) {
 		phyxelDt += dt;
@@ -456,24 +457,6 @@ struct World {
 					}
 					y++;
 				}
-				foreach (Chunk* lineChunk; line) {
-					foreach (i, ref pixel; lineChunk.pixelsWithVelocity) {
-						pixel.velY -= gravity;
-						float newX = pixel.x + pixel.velX * dt;
-						float newY = pixel.y + pixel.velY * dt;
-						auto targetPx = lineChunk.getPixel(cast(int) round(newX), cast(int) round(newY));
-						if (targetPx is null || targetPx.material.type != MaterialType.air) {
-							targetPx = lineChunk.getPixel(cast(int) round(pixel.x), cast(int) round(pixel.y));
-							*targetPx = pixel.pixel;
-							if (i + 1 < lineChunk.pixelsWithVelocity.length)
-								lineChunk.pixelsWithVelocity[i] = lineChunk.pixelsWithVelocity[$ - 1];
-							lineChunk.pixelsWithVelocity.length -= 1;
-						} else {
-							pixel.x = newX;
-							pixel.y = newY;
-						}
-					}
-				}
 				// if (reverse) {
 				// 	while (chunk.right !is null)
 				// 		chunk = chunk.right;
@@ -489,6 +472,22 @@ struct World {
 				// 		chunk = chunk.right;
 				// 	}
 				// }
+			}
+			foreach (i, ref pixel; pixelsWithVelocity) {
+				pixel.velY -= gravity;
+				float newX = pixel.x + pixel.velX * dt;
+				float newY = pixel.y + pixel.velY * dt;
+				auto targetPx = getPixel(cast(int) round(newX), cast(int) round(newY));
+				if (targetPx is null || targetPx.material.type != MaterialType.air) {
+					targetPx = getPixel(cast(int) round(pixel.x), cast(int) round(pixel.y));
+					*targetPx = pixel.pixel;
+					if (i + 1 < pixelsWithVelocity.length)
+						pixelsWithVelocity[i] = pixelsWithVelocity[$ - 1];
+					pixelsWithVelocity.length -= 1;
+				} else {
+					pixel.x = newX;
+					pixel.y = newY;
+				}
 			}
 			stepCounter++;
 			phyxelDt = 0;
@@ -541,6 +540,20 @@ struct World {
 			return chunks[Vec2i(xIndex, yIndex)];
 		else
 			return null;
+	}
+
+	Chunk** getChunkContaining(int x, int y) {
+		return Vec2i(
+			x / chunkSize - (x < 0 ? 1 : 0),
+			y / chunkSize - (y < 0 ? 1 : 0)
+		) in chunks;
+	}
+
+	Pixel* getPixel(int x, int y) {
+		auto chunk = getChunkContaining(x, y);
+		if (chunk is null)
+			return null;
+		return (*chunk).getPixel(x, y);
 	}
 }
  
