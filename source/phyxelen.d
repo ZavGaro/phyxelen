@@ -479,8 +479,15 @@ struct World {
 				float newY = pixel.y + pixel.velY * dt;
 				auto targetPx = getPixel(cast(int) round(newX), cast(int) round(newY));
 				if (targetPx is null || targetPx.material.type != MaterialType.air) {
-					targetPx = getPixel(cast(int) round(pixel.x), cast(int) round(pixel.y));
-					*targetPx = pixel.pixel;
+					int x = cast(int) round(pixel.x);
+					int y = cast(int) round(pixel.y);
+					targetPx = getPixel(x, y);
+					while (targetPx !is null && targetPx.material.type != MaterialType.air) {
+						y += 1;
+						targetPx = getPixel(x, y);
+					}
+					if (targetPx !is null)
+						*targetPx = pixel.pixel;
 					if (i + 1 < pixelsWithVelocity.length)
 						pixelsWithVelocity[i] = pixelsWithVelocity[$ - 1];
 					pixelsWithVelocity.length -= 1;
