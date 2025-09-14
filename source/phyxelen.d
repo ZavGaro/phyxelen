@@ -103,17 +103,17 @@ bool tryMovePixelRecursive(
 ) {
 	if (to is null)
 		return false;
-	if (to.material == from.material && to.updateCounter != step) {
-		int beyondX = toX * 2 - fromX;
-		int beyondY = toY * 2 - fromY;
-		Pixel* pixelBeyond = chunk.getPixel(beyondX, beyondY);
-		if (pixelBeyond is null || pixelBeyond.updateCounter == step)
-			return false;
-		// writefln("%s moves %s", fromX, toX);
-		if (!tryMovePixelRecursive(chunk, to, toX, toY,
-			pixelBeyond, beyondX, beyondY, step))
-		return false;
-	}
+	// if (to.material == from.material && to.updateCounter != step) {
+	// 	int beyondX = toX * 2 - fromX;
+	// 	int beyondY = toY * 2 - fromY;
+	// 	Pixel* pixelBeyond = chunk.getPixel(beyondX, beyondY);
+	// 	if (pixelBeyond is null || pixelBeyond.updateCounter == step)
+	// 		return false;
+	// 	// writefln("%s moves %s", fromX, toX);
+	// 	if (!tryMovePixelRecursive(chunk, to, toX, toY,
+	// 		pixelBeyond, beyondX, beyondY, step))
+	// 	return false;
+	// }
 	if (to.material.type == MaterialType.air) {
 		auto air = to.material;
 		*to = *from;
@@ -121,11 +121,25 @@ bool tryMovePixelRecursive(
 		to.updateCounter = step;
 		return true;
 	}
-	if (to.material.density < from.material.density || (diffuse && to.material.density == from.material.density)) {
-		swapPixels(to, from);
-		to.updateCounter = step;
-		return true;
+	if (to.material.density <= from.material.density) {
+		int beyondX = toX * 2 - fromX;
+		int beyondY = toY * 2 - fromY;
+		Pixel* pixelBeyond = chunk.getPixel(beyondX, beyondY);
+		if (pixelBeyond is null || pixelBeyond.updateCounter == step)
+			return false;
+		// writefln("%s moves %s", fromX, toX);
+			// from.updateCounter = step;
+		if (tryMovePixelRecursive(chunk, to, toX, toY,
+			pixelBeyond, beyondX, beyondY, step)
+		) {
+			return true;
+		}
 	}
+	// if (to.material.density < from.material.density || (diffuse && to.material.density == from.material.density)) {
+	// 	swapPixels(to, from);
+	// 	to.updateCounter = step;
+	// 	return true;
+	// }
 	
 	return false;
 }
@@ -216,8 +230,6 @@ struct Chunk {
 			}
 
 		if (pixel.updateCounter != step) {
-
-		// if (true){//pixels[i].updateCounter != step) {
 			int px = this.x * chunkSize + index % chunkSize;
 			int py = this.y * chunkSize + index / chunkSize;
 			auto thisMat = pixel.material;
@@ -243,9 +255,15 @@ struct Chunk {
 				break;
 			}
 			case MaterialType.liquid: {
+				enum fallBoostMultiplier = 1.5;
 				Pixel* under = getPixel(px, py - 1);
-				if (/*uniform(0, 100) != 0 && */tryMovePixel(pixel, under, step))
+				if (tryMovePixel(pixel, under, step)) {
+					pixel = under;
+					under = getPixel(px, py - 2);
+					if (under !is null && under.material.type == MaterialType.air)
+						throwPixel(world, pixel, px, py - 1, (uniform01() - 0.5) * world.targetPhyxelTps * 0.4,  -world.targetPhyxelTps * fallBoostMultiplier);
 					break;
+				}
 				Pixel* underLeft = getPixel(px - 1, py - 1);
 				Pixel* underRight = getPixel(px + 1, py - 1);
 				version (noSplat) {
@@ -261,47 +279,37 @@ struct Chunk {
 							break;
 					}
 				} else {
-					enum maxOffset = 20;
-					enum fallBoostMultiplier = 1.5;
 					if (uniform(0, 2) == 0) {
 						if (tryMovePixel(pixel, underLeft, step)) {
 							Pixel* lowerLeft = getPixel(px - 1, py - 2);
-							if (lowerLeft !is null) {
-								// int offset = uniform(1, maxOffset);
+							if (lowerLeft !is null && lowerLeft.material.type == MaterialType.air) {
 								float offset = uniform01() * world.targetPhyxelTps;
 								throwPixel(world, underLeft, px - 1, py, -offset, -world.targetPhyxelTps * fallBoostMultiplier);
-								// tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
 							}
 							break;
 						}
 						if (tryMovePixel(pixel, underRight, step)) {
 							Pixel* lowerRight = getPixel(px + 1, py - 2);
-							if (lowerRight !is null) {
-								// int offset = uniform(1, maxOffset);
+							if (lowerRight !is null && lowerRight.material.type == MaterialType.air) {
 								float offset = uniform01() * world.targetPhyxelTps;
 								throwPixel(world, underRight, px + 1, py, offset, -world.targetPhyxelTps * fallBoostMultiplier);
-								// tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
 							}
 							break;
 						}
 					} else {
 						if (tryMovePixel(pixel, underRight, step)) {
 							Pixel* lowerRight = getPixel(px + 1, py - 2);
-							if (lowerRight !is null) {
-								// int offset = uniform(1, maxOffset);
+							if (lowerRight !is null && lowerRight.material.type == MaterialType.air) {
 								float offset = uniform01() * world.targetPhyxelTps;
 								throwPixel(world, underRight, px + 1, py, offset, -world.targetPhyxelTps * fallBoostMultiplier);
-								// tryMovePixel(underRight, getPixel(px + offset, py - offset + 1), step);
 							}
 							break;
 						}
 						if (tryMovePixel(pixel, underLeft, step)) {
 							Pixel* lowerLeft = getPixel(px - 1, py - 2);
-							if (lowerLeft !is null) {
-								// int offset = uniform(1, maxOffset);
+							if (lowerLeft !is null && lowerLeft.material.type == MaterialType.air) {
 								float offset = uniform01() * world.targetPhyxelTps;
 								throwPixel(world, underLeft, px - 1, py, -offset, -world.targetPhyxelTps * fallBoostMultiplier);
-								// tryMovePixel(underLeft, getPixel(px - offset, py - offset + 1), step);
 							}
 							break;
 						}
@@ -310,33 +318,30 @@ struct Chunk {
 				}
 				Pixel* leftPx = getPixel(px - 1, py);
 				Pixel* rightPx = getPixel(px + 1, py);
-				// if (uniform(0, 2) == 0) {
-				// 	if (tryMovePixel(pixel, leftPx, step))
-				// 		break;
-				// 	if (tryMovePixel(pixel, rightPx, step))
-				// 		break;
-				// } else {
-				// 	if (tryMovePixel(pixel, rightPx, step))
-				// 		break;
-				// 	if (tryMovePixel(pixel, leftPx, step))
-				// 		break;
-				// }
+				ubyte moveDist = 4;
 				if (uniform(0, 2) == 0) {
-					tryMovePixelRecursive(&this, pixel, px, py, leftPx, px - 1, py, step, true);
+					while (tryMovePixel(pixel, leftPx, step) && moveDist > 0) {
+						moveDist -= 1;
+						px -= 1;
+						pixel = leftPx;
+						leftPx = getPixel(px - 1, py);
+						under = getPixel(px - 1, py - 1);
+						if (under is null || under.material.type != MaterialType.liquid)
+							break;
+					}
+					break;
 				} else {
-					tryMovePixelRecursive(&this, pixel, px, py, rightPx, px + 1, py, step, true);
+					while (tryMovePixel(pixel, rightPx, step) && moveDist > 0) {
+						moveDist -= 1;
+						px += 1;
+						pixel = rightPx;
+						rightPx = getPixel(px + 1, py);
+						under = getPixel(px + 1, py - 1);
+						if (under is null || under.material.type != MaterialType.liquid)
+							break;
+					}
+					break;
 				}
-				// if (uniform(0, 2) == 0) {
-				// 	if (tryMovePixelRecursive(&this, pixel, px, py, leftPx, px - 1, py, step))
-				// 		break;
-				// 	if (tryMovePixelRecursive(&this, pixel, px, py, rightPx, px + 1, py, step))
-				// 		break;
-				// } else {
-				// 	if (tryMovePixelRecursive(&this, pixel, px, py, rightPx, px + 1, py, step))
-				// 		break;
-				// 	if (tryMovePixelRecursive(&this, pixel, px, py, leftPx, px - 1, py, step))
-				// 		break;
-				// }
 				break;
 			}
 			case MaterialType.gas: {
