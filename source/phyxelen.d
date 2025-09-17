@@ -547,6 +547,22 @@ struct World {
 		}
 	}
 
+	void removeChunk(int xIndex, int yIndex) {
+		foreach (i, chunk; leftChunks) {
+			if (chunk.y != yIndex)
+				continue;
+			Chunk* ch = chunk;
+			while (ch !is null)
+				ch = ch.right;
+			if (ch.x == xIndex) {
+				if (ch.left !is null)
+					ch.left.right = ch.right;
+				if (ch.right !is null)
+					ch.right.left = ch.left;
+			}
+		}
+	}
+
 	Chunk* getChunk(int xIndex, int yIndex) {
 		if (Vec2i(xIndex, yIndex) in chunks)
 			return chunks[Vec2i(xIndex, yIndex)];
