@@ -432,11 +432,15 @@ struct Chunk {
 	}
 }
 
+struct ChunkRow {
+	Chunk* leftmost;
+	ChunkRow* above;
+}
 
 struct World {
 	Material[] materials;
 	Chunk*[Vec2i] chunks;
-	Chunk*[] leftChunks;
+	ChunkRow* lowestRow;
 	ubyte stepCounter;
 	float targetPhyxelTps = 20;
     float phyxelDt = 0;
@@ -448,10 +452,10 @@ struct World {
 		phyxelDt += dt;
 		if (phyxelDt >= 1 / targetPhyxelTps) {
 			bool reverse = stepCounter % 2 == 0;
-			// bool reverse = false;
-			foreach (first; leftChunks) {
+			ChunkRow* row = lowestRow;
+			while (row !is null) {
 				Chunk*[] line;
-				Chunk* chunk = first;
+				Chunk* chunk = row.leftmost;
 				while (chunk !is null) {
 					line ~= chunk;
 					chunk = chunk.right;
@@ -481,21 +485,7 @@ struct World {
 					}
 					y++;
 				}
-				// if (reverse) {
-				// 	while (chunk.right !is null)
-				// 		chunk = chunk.right;
-				// 	while (chunk !is null) {
-				// 		// writefln("%s %s", chunk.x, chunk.y);
-				// 		chunk.step(stepCounter);
-				// 		chunk = chunk.left;
-				// 	}
-				// } else {
-				// 	while (chunk !is null) {
-				// 		// writefln("%s %s", chunk.x, chunk.y);
-				// 		chunk.step(stepCounter);
-				// 		chunk = chunk.right;
-				// 	}
-				// }
+				row = row.above;
 			}
 			foreach (i, ref pixel; pixelsWithVelocity) {
 				pixel.velY -= gravity;
@@ -529,40 +519,70 @@ struct World {
 		newChunk.world = &this;
 		chunks[Vec2i(newChunk.x, newChunk.y)] = newChunk;
 
-		if (leftChunks.length == 0) {
-			leftChunks ~= newChunk;
+		if (lowestRow is null) {
+			lowestRow = new ChunkRow();
+			lowestRow.leftmost = newChunk;
 			return;
 		}
 
-		foreach (i, chunk; leftChunks) {
-			if (newChunk.y == chunk.y) {
-				if (chunk.x > newChunk.x) {
-					leftChunks[i] = newChunk;
-					newChunk.right = chunk;
-					chunk.left = newChunk;
+		ChunkRow** rowPtr = &lowestRow;
+		while (*rowPtr !is null) {
+			auto row = *rowPtr;
+			if (row.leftmost.y == newChunk.y) {
+				if (row.leftmost.x > newChunk.x) {
+					newChunk.right = row.leftmost;
+					row.leftmost.left = newChunk;
+					row.leftmost = newChunk;
+					return;
 				} else {
-					// Inserting in bi-linked list
-					Chunk* ch = chunk;
-					while ( ch.right !is null && ch.right.x < newChunk.x ) {
+					Chunk* ch = row.leftmost;
+					while (ch.right !is null && ch.right.x < newChunk.x) {
 						ch = ch.right;
 					}
 					if (ch.right !is null)
 						ch.right.left = newChunk;
+					newChunk.right = ch.right;
 					ch.right = newChunk;
 					newChunk.left = ch;
 					return;
 				}
-
-			} else if (newChunk.y < chunk.y) {
-				leftChunks.length += 1;
-				foreach_reverse (j; i + 2 .. leftChunks.length)
-					leftChunks[j - 1] = leftChunks[j - 2];
-				leftChunks[i] = newChunk;
+			} else if (newChunk.y < row.leftmost.y) {
+				auto newRow = new ChunkRow();
+				newRow.leftmost = newChunk;
+				newRow.above = row;
+				*rowPtr = newRow;
 				return;
-			} else if (i + 1 == leftChunks.length) {
-				leftChunks ~= newChunk;
+			} else if (row.above is null) {
+				auto newRow = new ChunkRow();
+				newRow.leftmost = newChunk;
+				row.above = newRow;
 				return;
 			}
+			rowPtr = &(row.above);
+		}
+	}
+
+	void removeChunk(int xIndex, int yIndex) {
+		chunks.remove(Vec2i(xIndex, yIndex));
+		ChunkRow** rowPtr = &lowestRow;
+		while (*rowPtr !is null) {
+			if ((*rowPtr).leftmost.y == yIndex) {
+				Chunk* ch = (*rowPtr).leftmost;
+				while (ch !is null) {
+					if (ch.x == xIndex) {
+						if (ch.left is null && ch.right is null) {
+							*rowPtr = (*rowPtr).above;
+							return;
+						}
+						if (ch.left !is null)
+							ch.left.right = ch.right;
+						if (ch.right !is null)
+							ch.right.left = ch.left;
+					}
+					ch = ch.right;
+				}
+			}
+			rowPtr = &((*rowPtr).above);
 		}
 	}
 
@@ -571,6 +591,10 @@ struct World {
 			return chunks[Vec2i(xIndex, yIndex)];
 		else
 			return null;
+	}
+
+	int absCoordToChunkIndex(int coord) {
+		return coord / chunkSize - (coord < 0 ? 1 : 0);
 	}
 
 	Chunk** getChunkContaining(int x, int y) {
