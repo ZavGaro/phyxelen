@@ -35,7 +35,8 @@ struct FlammabilityRule
 	float flammability = 0.0f;
 	float fireRate = 0.3f;
 	Material* burningMaterial;
-	bool isBurning = false;
+	Material* fire;
+	Material* result;
 }
 
 struct Material {
@@ -45,6 +46,7 @@ struct Material {
 	int[] colors;
 	InteractionRule[ushort] interactions;
 	FlammabilityRule flammabilityRule;
+	ushort health = 100;
 }
 
 struct Pixel {
@@ -53,6 +55,7 @@ struct Pixel {
 	ubyte updateCounter;
 	bool colorOverriden;
 	int colorOverride;
+	bool isBurning = false;
 
 	int getColor() {
 		if (!colorOverriden)
@@ -196,6 +199,7 @@ struct Chunk {
 					// getPixel(px - 1, py + 1),//aboveLeft
 					// getPixel(px + 1, py + 1),//aboveRight
 					];
+				
 
 				foreach (i, pix; surroundingPxs) {
 					if (pix !is null && pix.material.id in pixel.material.interactions && pix.updateCounter != step) {
@@ -203,22 +207,29 @@ struct Chunk {
 						
 						switch (interaction.type){
 							case InteractionType.burn://burn
+
 								// if (uniform(0.0f, 1.0f) < pix.material.flammabilityRule.flammability)
-								// 	changeMaterial(pix, pix.material.flammabilityRule.burningMaterial);
-								// if(uniform(0.0f, 1.0f) < ) Пока не работает...я устав
+								// 	pix.isBurning = true;
+								//  	changeMaterial(pix, pix.material.flammabilityRule.burningMaterial);
+
+								// if (uniform(0.0f, 1.0f) < pixel.material.flammabilityRule.fireRate && pix.material.type == MaterialType.air) 
+								// 	changeMaterial(pix, pixel.material.flammabilityRule.fire);
 
 								break;
 							case InteractionType.changeSelf://changeself
 								changeMaterial(pixel, interaction.material);
 								break;
+
 							case InteractionType.changeEnother://changeEnother
 								if (uniform(0.0f, 1.0f) < interaction.spreadFactor)
 									changeMaterial(pix, interaction.material);
 								break;
+
 							case InteractionType.changeBoth://changeBoth
 								changeMaterial(pix, interaction.material);
 								changeMaterial(pixel, interaction.material);
 								break;
+
 							case InteractionType.explode://explode
 								break;
 							default:
@@ -229,6 +240,14 @@ struct Chunk {
     			}
 			}
 
+		// if (pixel.isBurning)
+		// 	if (pixel.material.health <= 0)
+		// 		pixel.isBurning = false;
+		// 		changeMaterial(pixel, pixel.material.flammabilityRule.result);
+		// 	pixel.material.health -= 1;
+			
+
+			
 		if (pixel.updateCounter != step) {
 			int px = this.x * chunkSize + index % chunkSize;
 			int py = this.y * chunkSize + index / chunkSize;
