@@ -498,6 +498,7 @@ struct World {
 
 	void addChunk(Chunk* newChunk) {
 		newChunk.world = &this;
+		chunks[Vec2i(newChunk.x, newChunk.y)] = newChunk;
 
 		if (lowestRow is null) {
 			lowestRow = new ChunkRow();
