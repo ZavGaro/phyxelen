@@ -47,7 +47,7 @@ struct Material {
 	InteractionRule[ushort] interactions;
 	FlammabilityRule flammabilityRule;
 	bool isBurning = false;
-	ushort health = 50;
+	ushort baseHealth = 50;
 }
 
 struct Pixel {
@@ -55,12 +55,12 @@ struct Pixel {
 	ubyte color;
 	ubyte updateCounter;
 	ushort health = 100;
-	bool colorOverriden;
-	int colorOverride;
+	bool colorOverriden = false;
+	int colorOverride = 0;
 	
 	static create(Material* material) {
   		Pixel px = Pixel(material);
-  		px.health = material.health;
+  		px.health = material.baseHealth;
   		px.resetColor();
   		return px;
 	}
@@ -245,12 +245,15 @@ struct Chunk {
 			}
 
 		if (pixel.material.isBurning){
-			if (pixel.health <= 0)
+			bool changed = false;
+			if (pixel.health <= 0){
 				changeMaterial(pixel, pixel.material.flammabilityRule.result);
+				changed = true;
+			}
 			else if(uniform(0.0f, 1.0f) < pixel.material.flammabilityRule.flammability)
 				pixel.health -= 1;
 			
-			if (pixel.updateCounter != step){
+			if (pixel.updateCounter != step && pixel.material.flammabilityRule.fire !is null && !changed){
 				int px = this.x * chunkSize + index % chunkSize;
 				int py = this.y * chunkSize + index / chunkSize;
 				Pixel*[] surroundingPxs = [			//Место потенциальных лагов из-за горения
@@ -267,10 +270,10 @@ struct Chunk {
         			}
     			}
 				
-				if (airPixels.length > 0) {
+				if (airPixels.length > 0 && uniform(0.0f, 1.0f) < pixel.material.flammabilityRule.fireRate) {
         			Pixel* airPixel = airPixels[uniform(0, airPixels.length)];
         
-        			// changeMaterial(airPixel, pixel.material.flammabilityRule.fire);
+        			changeMaterial(airPixel, pixel.material.flammabilityRule.fire);
     			}
 			}
 		}
@@ -644,6 +647,7 @@ struct World {
 void changeMaterial(Pixel* pixel, Material* newMaterial){
 	pixel.material = newMaterial;
 	pixel.resetColor();
+	pixel.health = pixel.material.baseHealth;
 }
 
 void changeMaterial(Pixel* pixel1, Pixel* pixel2, Material* newMaterial1, Material* newMaterial2){
@@ -651,4 +655,6 @@ void changeMaterial(Pixel* pixel1, Pixel* pixel2, Material* newMaterial1, Materi
 	pixel1.resetColor();
 	pixel2.material = newMaterial2;
 	pixel2.resetColor();
+	pixel1.health = pixel1.material.baseHealth;
+	pixel2.health = pixel2.material.baseHealth;
 }
