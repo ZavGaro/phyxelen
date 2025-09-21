@@ -288,8 +288,14 @@ struct Chunk {
 			case MaterialType.air, MaterialType.solid: break;
 			case MaterialType.powder: {
 				Pixel* under = getPixel(px, py - 1);
-				if (tryMovePixel(pixel, under, step))
+				if (tryMovePixel(pixel, under, step)) {
+					pixel = under;
+					under = getPixel(px, py - 2);
+					if (under !is null && under.material.type == MaterialType.air)
+						throwPixel(world, pixel, px, py - 1,
+							(uniform01() - 0.5) * world.targetPhyxelTps,  -world.targetPhyxelTps * world.fallBoostMultiplier);
 					break;
+				}
 				Pixel* underLeft = getPixel(px - 1, py - 1);
 				Pixel* underRight = getPixel(px + 1, py - 1);
 				if (uniform(0, 2) == 0) {
@@ -306,13 +312,13 @@ struct Chunk {
 				break;
 			}
 			case MaterialType.liquid: {
-				enum fallBoostMultiplier = 1.5;
 				Pixel* under = getPixel(px, py - 1);
 				if (tryMovePixel(pixel, under, step)) {
 					pixel = under;
 					under = getPixel(px, py - 2);
 					if (under !is null && under.material.type == MaterialType.air)
-						throwPixel(world, pixel, px, py - 1, (uniform01() - 0.5) * world.targetPhyxelTps * 0.4,  -world.targetPhyxelTps * fallBoostMultiplier);
+						throwPixel(world, pixel, px, py - 1,
+							(uniform01() - 0.5) * world.targetPhyxelTps,  -world.targetPhyxelTps * world.fallBoostMultiplier);
 					break;
 				}
 				Pixel* underLeft = getPixel(px - 1, py - 1);
@@ -335,7 +341,7 @@ struct Chunk {
 							Pixel* lowerLeft = getPixel(px - 1, py - 2);
 							if (lowerLeft !is null && lowerLeft.material.type == MaterialType.air) {
 								float offset = uniform01() * world.targetPhyxelTps;
-								throwPixel(world, underLeft, px - 1, py, -offset, -world.targetPhyxelTps * fallBoostMultiplier);
+								throwPixel(world, underLeft, px - 1, py, -offset, -world.targetPhyxelTps * world.fallBoostMultiplier);
 							}
 							break;
 						}
@@ -343,7 +349,7 @@ struct Chunk {
 							Pixel* lowerRight = getPixel(px + 1, py - 2);
 							if (lowerRight !is null && lowerRight.material.type == MaterialType.air) {
 								float offset = uniform01() * world.targetPhyxelTps;
-								throwPixel(world, underRight, px + 1, py, offset, -world.targetPhyxelTps * fallBoostMultiplier);
+								throwPixel(world, underRight, px + 1, py, offset, -world.targetPhyxelTps * world.fallBoostMultiplier);
 							}
 							break;
 						}
@@ -352,7 +358,7 @@ struct Chunk {
 							Pixel* lowerRight = getPixel(px + 1, py - 2);
 							if (lowerRight !is null && lowerRight.material.type == MaterialType.air) {
 								float offset = uniform01() * world.targetPhyxelTps;
-								throwPixel(world, underRight, px + 1, py, offset, -world.targetPhyxelTps * fallBoostMultiplier);
+								throwPixel(world, underRight, px + 1, py, offset, -world.targetPhyxelTps * world.fallBoostMultiplier);
 							}
 							break;
 						}
@@ -360,7 +366,7 @@ struct Chunk {
 							Pixel* lowerLeft = getPixel(px - 1, py - 2);
 							if (lowerLeft !is null && lowerLeft.material.type == MaterialType.air) {
 								float offset = uniform01() * world.targetPhyxelTps;
-								throwPixel(world, underLeft, px - 1, py, -offset, -world.targetPhyxelTps * fallBoostMultiplier);
+								throwPixel(world, underLeft, px - 1, py, -offset, -world.targetPhyxelTps * world.fallBoostMultiplier);
 							}
 							break;
 						}
@@ -369,27 +375,39 @@ struct Chunk {
 				}
 				Pixel* leftPx = getPixel(px - 1, py);
 				Pixel* rightPx = getPixel(px + 1, py);
-				ubyte moveDist = 4;
+				int moveDist = 6;
 				if (uniform(0, 2) == 0) {
 					while (tryMovePixel(pixel, leftPx, step) && moveDist > 0) {
+						if (under.material.type == MaterialType.air) {
+							tryMovePixel(pixel, under, step);
+							break;
+						}
 						moveDist -= 1;
 						px -= 1;
 						pixel = leftPx;
 						leftPx = getPixel(px - 1, py);
 						under = getPixel(px - 1, py - 1);
-						if (under is null || under.material.type != MaterialType.liquid)
+						if (under is null)
 							break;
+						// if (under.material.type != MaterialType.liquid)
+						// 	moveDist -= 1;
 					}
 					break;
 				} else {
 					while (tryMovePixel(pixel, rightPx, step) && moveDist > 0) {
+						if (under.material.type == MaterialType.air) {
+							tryMovePixel(pixel, under, step);
+							break;
+						}
 						moveDist -= 1;
 						px += 1;
 						pixel = rightPx;
 						rightPx = getPixel(px + 1, py);
 						under = getPixel(px + 1, py - 1);
-						if (under is null || under.material.type != MaterialType.liquid)
+						if (under is null)
 							break;
+						// if (under.material.type != MaterialType.liquid)
+						// 	moveDist -= 1;
 					}
 					break;
 				}
@@ -477,7 +495,8 @@ struct World {
 	float targetPhyxelTps = 20;
     float phyxelDt = 0;
 
-	float gravity = 2;
+	float fallBoostMultiplier = 2.5;
+	float gravity = 8;
 	PixelWithVelocity[] pixelsWithVelocity;
 
 	void step(float dt) {
