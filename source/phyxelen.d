@@ -46,16 +46,24 @@ struct Material {
 	int[] colors;
 	InteractionRule[ushort] interactions;
 	FlammabilityRule flammabilityRule;
-	ushort health = 100;
+	bool isBurning = false;
+	ushort health = 50;
 }
 
 struct Pixel {
 	Material* material;
 	ubyte color;
 	ubyte updateCounter;
+	ushort health = 100;
 	bool colorOverriden;
 	int colorOverride;
-	bool isBurning = false;
+	
+	static create(Material* material) {
+  		Pixel px = Pixel(material);
+  		px.health = material.health;
+  		px.resetColor();
+  		return px;
+	}
 
 	int getColor() {
 		if (!colorOverriden)
@@ -208,12 +216,8 @@ struct Chunk {
 						switch (interaction.type){
 							case InteractionType.burn://burn
 
-								// if (uniform(0.0f, 1.0f) < pix.material.flammabilityRule.flammability)
-								// 	pix.isBurning = true;
-								//  	changeMaterial(pix, pix.material.flammabilityRule.burningMaterial);
-
-								// if (uniform(0.0f, 1.0f) < pixel.material.flammabilityRule.fireRate && pix.material.type == MaterialType.air) 
-								// 	changeMaterial(pix, pixel.material.flammabilityRule.fire);
+								if (uniform(0.0f, 1.0f) < pix.material.flammabilityRule.flammability)
+								 	changeMaterial(pix, pix.material.flammabilityRule.burningMaterial);
 
 								break;
 							case InteractionType.changeSelf://changeself
@@ -240,12 +244,37 @@ struct Chunk {
     			}
 			}
 
-		// if (pixel.isBurning)
-		// 	if (pixel.material.health <= 0)
-		// 		pixel.isBurning = false;
-		// 		changeMaterial(pixel, pixel.material.flammabilityRule.result);
-		// 	pixel.material.health -= 1;
+		if (pixel.material.isBurning){
+			if (pixel.health <= 0)
+				changeMaterial(pixel, pixel.material.flammabilityRule.result);
+			else if(uniform(0.0f, 1.0f) < pixel.material.flammabilityRule.flammability)
+				pixel.health -= 1;
 			
+			if (pixel.updateCounter != step){
+				int px = this.x * chunkSize + index % chunkSize;
+				int py = this.y * chunkSize + index / chunkSize;
+				Pixel*[] surroundingPxs = [			//Место потенциальных лагов из-за горения
+					getPixel(px, py - 1),//under
+					getPixel(px - 1, py),//leftPx
+					getPixel(px + 1, py),//rightPx
+					getPixel(px, py + 1),//above
+					];
+				
+				Pixel*[] airPixels;
+    			foreach (pix; surroundingPxs) {
+        			if (pix != null && pix.material.type == MaterialType.air) {
+            			airPixels ~= pix;
+        			}
+    			}
+				
+				if (airPixels.length > 0) {
+        			Pixel* airPixel = airPixels[uniform(0, airPixels.length)];
+        
+        			// changeMaterial(airPixel, pixel.material.flammabilityRule.fire);
+    			}
+			}
+		}
+		
 
 			
 		if (pixel.updateCounter != step) {
